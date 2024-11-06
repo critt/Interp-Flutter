@@ -2,5 +2,10 @@
 
 A frontend for a two-party verbal interpretation system using GCP
 
-#
-<img src="screenshots/Screenshot_1730933768.png" alt="Screenshot" width="400"/>
+## Screenshots
+
+#### Android
+<img src="screenshots/android.png" alt="Screenshot" width="350"/>
+
+#### maxOS
+<img src="screenshots/macOS.png" alt="Screenshot" width="400"/>

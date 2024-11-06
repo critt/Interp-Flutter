@@ -1,37 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-void main() {
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ServiceState()),
-        ChangeNotifierProvider(create: (_) => UserTranscription()),
-        ChangeNotifierProvider(create: (_) => PartnerTranscription()),
-      ],
-      child: const MyApp(),
-    ),
-  );
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Translation Circuit',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blueGrey, brightness: Brightness.dark),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: '🗣 Translation Circuit'),
-    );
-  }
-}
-
 class TranscriptionState extends ChangeNotifier {
   TranscriptionState(
       {required String id,
@@ -88,21 +57,52 @@ class UserTranscription extends TranscriptionState {
             objectLanguage: 'German');
 }
 
-enum ConnectionState { connected, connecting, disconnected }
-
 class ServiceState extends ChangeNotifier {
-  ConnectionState _state = ConnectionState.disconnected;
+  ConnectionStatus _state = ConnectionStatus.disconnected;
 
-  ConnectionState get state => _state;
+  ConnectionStatus get state => _state;
 
   void toggleConnection() {
-    _state = _state == ConnectionState.connected
-        ? ConnectionState.disconnected
-        : _state == ConnectionState.disconnected
-            ? ConnectionState.connecting
-            : ConnectionState.connected;
+    _state = _state == ConnectionStatus.connected
+        ? ConnectionStatus.disconnected
+        : _state == ConnectionStatus.disconnected
+            ? ConnectionStatus.connecting
+            : ConnectionStatus.connected;
 
     notifyListeners();
+  }
+}
+
+enum ConnectionStatus { connected, connecting, disconnected }
+
+void main() {
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ServiceState()),
+        ChangeNotifierProvider(create: (_) => UserTranscription()),
+        ChangeNotifierProvider(create: (_) => PartnerTranscription()),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Translation Circuit',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.blueGrey, brightness: Brightness.dark),
+        useMaterial3: true,
+      ),
+      home: const MyHomePage(title: '🗣 Translation Circuit'),
+    );
   }
 }
 
@@ -137,9 +137,9 @@ class _MyHomePageState extends State<MyHomePage> {
     final serviceState = context.watch<ServiceState>();
 
     MaterialColor connectionColor =
-        serviceState.state == ConnectionState.connected
+        serviceState.state == ConnectionStatus.connected
             ? Colors.green
-            : serviceState.state == ConnectionState.connecting
+            : serviceState.state == ConnectionStatus.connecting
                 ? Colors.yellow
                 : Colors.grey;
 
