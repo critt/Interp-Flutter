@@ -21,12 +21,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Interpreter',
+      title: 'Translation Circuit',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.blueGrey, brightness: Brightness.dark),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Interpreter'),
+      home: const MyHomePage(title: '🗣 Translation Circuit'),
     );
   }
 }
@@ -132,6 +133,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // The Flutter framework has been optimized to make rerunning build methods
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
+    final theme = Theme.of(context);
     final serviceState = context.watch<ServiceState>();
 
     MaterialColor connectionColor =
@@ -143,13 +145,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: theme.colorScheme.surface,
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text(widget.title,
+            style: theme.textTheme.titleLarge!
+                .copyWith(color: theme.colorScheme.secondary)),
       ),
       body: const Center(
         // Center is a layout widget. It takes a single child and positions it
@@ -206,30 +207,24 @@ class BigCard extends StatelessWidget {
         : context.watch<PartnerTranscription>();
 
     final theme = Theme.of(context);
-    final titleStyle = theme.textTheme.titleMedium!.copyWith(
-      color: theme.colorScheme.primary,
-    );
-
-    final contentStyle = theme.textTheme.bodyMedium!
-        .copyWith(color: theme.colorScheme.onPrimaryContainer);
 
     return Column(
       children: [
-        FractionallySizedBox (
+        FractionallySizedBox(
           widthFactor: 1,
           child: Text(
             '${transcriptionState.objectLanguage} ➜ ${transcriptionState.subjectLanguage}',
-            style: titleStyle,
+            style: theme.textTheme.titleMedium!
+                .copyWith(color: theme.colorScheme.secondary),
             textAlign: TextAlign.start,
           ),
         ),
-        FractionallySizedBox (
+        FractionallySizedBox(
           widthFactor: 1,
           child: Padding(
             padding: const EdgeInsets.only(top: 14.0, bottom: 14.0),
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(color: theme.colorScheme.primaryContainer),
                 borderRadius: BorderRadius.circular(10),
                 color: theme.colorScheme.primaryContainer,
               ),
@@ -239,7 +234,8 @@ class BigCard extends StatelessWidget {
                   height: 200,
                   child: Text(
                     transcriptionState.data,
-                    style: contentStyle,
+                    style: theme.textTheme.bodyMedium!
+                        .copyWith(color: theme.colorScheme.onPrimaryContainer),
                   ),
                 ),
               ),
