@@ -8,33 +8,21 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class AudioRecorder extends ChangeNotifier {
-  FlutterSoundPlayer? _mPlayer = FlutterSoundPlayer();
   FlutterSoundRecorder? _mRecorder = FlutterSoundRecorder();
-  bool _mPlayerIsInit = false;
-  bool _mRecorderIsInit = false;
+  bool isInit = false;
   String? _mPath;
-  bool _mPlaybackReady = false;
   StreamSubscription? _mRecordingDataSubscription;
   int sampleRate = 44100;
 
   AudioRecorder();
 
   Future<void> init() async {
-    _mPlayer!.openPlayer().then((value) {
-      _mPlayerIsInit = true;
-      notifyListeners();
-    });
-
     await _openRecorder();
     notifyListeners();
   }
 
   @override
   void dispose() {
-    stopPlayer();
-    _mPlayer!.closePlayer();
-    _mPlayer = null;
-
     stopRecorder();
     _mRecorder!.closeRecorder();
     _mRecorder = null;
@@ -43,6 +31,7 @@ class AudioRecorder extends ChangeNotifier {
 
   Future<void> _openRecorder() async {
     print('_openRecorder'); 
+
     var status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) {
       throw RecordingPermissionException('Microphone permission not granted');
@@ -69,19 +58,22 @@ class AudioRecorder extends ChangeNotifier {
     ));
     //sampleRate = await _mRecorder!.getSampleRate();
 
-    _mRecorderIsInit = true;
+    isInit = true;
     notifyListeners();
   }
 
   Future<void> record() async {
     print('record'); 
-    assert(_mRecorderIsInit && _mPlayer!.isStopped);
+
+    assert(isInit);
+
     var sink = await _createFile();
     var recordingDataController = StreamController<Uint8List>();
     _mRecordingDataSubscription =
         recordingDataController.stream.listen((buffer) {
       sink.add(buffer);
     });
+
     await _mRecorder!.startRecorder(
       toStream: recordingDataController.sink,
       codec: Codec.pcm16,
@@ -89,45 +81,24 @@ class AudioRecorder extends ChangeNotifier {
       sampleRate: 44100,
       bufferSize: 8192,
     );
-
   }
 
   Future<void> stopRecorder() async {
-    print('stopRecorder'); 
+    print('stopRecorder');
+
     await _mRecorder!.stopRecorder();
+
     if (_mRecordingDataSubscription != null) {
       await _mRecordingDataSubscription!.cancel();
       _mRecordingDataSubscription = null;
     }
-
-    _mPlaybackReady = true;
-  }
-
-  void play() async {
-    print('play'); 
-    assert(_mPlayerIsInit &&
-        _mPlaybackReady &&
-        _mRecorder!.isStopped &&
-        _mPlayer!.isStopped);
-    await _mPlayer!.startPlayer(
-        fromURI: _mPath,
-        sampleRate: sampleRate,
-        codec: Codec.pcm16,
-        numChannels: 2,
-        whenFinished: () {
-        });
-
-  }
-
-  Future<void> stopPlayer() async {
-    print('stopPlayer'); 
-    await _mPlayer!.stopPlayer();
   }
 
   Future<IOSink> _createFile() async {
     var tempDir = await getTemporaryDirectory();
     _mPath = '${tempDir.path}/flutter_audio_stream.pcm';
     var outputFile = File(_mPath!);
+    
     if (outputFile.existsSync()) {
       await outputFile.delete();
     }

@@ -131,16 +131,16 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     print('-------------------build-------------------');
+    print('serviceState.state == ConnectionStatus.connected');
+
     final theme = Theme.of(context);
     final serviceState = context.watch<ServiceState>();
     final audioState = context.watch<AudioRecorder>();
 
-    if (serviceState.state == ConnectionStatus.connected) {
-      print('serviceState.state == ConnectionStatus.connected');
+    if (serviceState.state == ConnectionStatus.connected && audioState.isInit) {
       audioState.record(); 
-    } else if (serviceState.state == ConnectionStatus.connecting) {
-      print('serviceState.state == ${serviceState.state}');
-      audioState.play();
+    } else {
+      audioState.stopRecorder();
     }
 
     MaterialColor connectionColor =
@@ -175,11 +175,6 @@ class _MyHomePageState extends State<MyHomePage> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: Theme.of(context).colorScheme.secondary,
         onPressed: () {
-          if (serviceState.state == ConnectionStatus.connected) {
-            audioState.stopRecorder();
-          } else if (serviceState.state == ConnectionStatus.connecting) {
-            audioState.stopPlayer();
-          }
           serviceState.toggleConnection();
         },
         tooltip: 'Increment',
