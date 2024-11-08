@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'audio-recorder.dart';
+import 'audio_recorder.dart';
 
 class TranscriptionState extends ChangeNotifier {
   TranscriptionState(
