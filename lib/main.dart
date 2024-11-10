@@ -134,16 +134,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   @override
-  void initState() {
-    super.initState();
-    // call AudioRecorder.init() after the first frame is rendered
-    // why tho?
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   Provider.of<AudioRecorder>(context, listen: false).init();
-    // });
-  }
-
-  @override
   Widget build(BuildContext context) {
     print('-------------------build-------------------');
 
