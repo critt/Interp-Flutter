@@ -9,6 +9,7 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 class AudioRecorder extends ChangeNotifier {
   FlutterSoundRecorder? _mRecorder = FlutterSoundRecorder();
   bool isInit = false;
+  bool isRecording = false;
   String? _mPath;
   StreamSubscription? _mRecordingDataSubscription;
   static const int sampleRate = 16000;
@@ -79,16 +80,16 @@ class AudioRecorder extends ChangeNotifier {
     //sampleRate = await _mRecorder!.getSampleRate();
   }
 
-  Future<void> record() async {
+  Future<void> record(Function(String, bool) f) async {
     print('record');
 
     assert(isInit);
+    assert(!isRecording);
+
+    isRecording = true;
 
     _socket.on('speechData', (response) {
-      final speechData = response['data'];
-      final isFinal = response['isFinal'];
-
-      print('speechData: $speechData, isFinal: $isFinal');
+      f(response['data'], response['isFinal']);
     });
 
     _socket.emit('startGoogleCloudStream', _getTranscriptionConfig());
@@ -122,6 +123,8 @@ class AudioRecorder extends ChangeNotifier {
       await _mRecordingDataSubscription!.cancel();
       _mRecordingDataSubscription = null;
     }
+
+    isRecording = false;
   }
 
   dynamic _getTranscriptionConfig() {

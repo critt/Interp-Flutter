@@ -17,8 +17,11 @@ class TranscriptionState extends ChangeNotifier {
   String _subjectLanguage;
   String _objectLanguage;
   String _data;
+  String _nextPhrase = '';
 
   String get data => _data;
+
+  String get nextPhrase => _nextPhrase;
 
   String get id => _id;
 
@@ -34,9 +37,19 @@ class TranscriptionState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateData(String newData) {
-    _data = newData;
+  void updateData(String newData, bool isFinal) {
+    if (isFinal) {
+      _data += newData;
+      _nextPhrase = '';
+    } else {
+      _nextPhrase = newData;
+    }
+
     notifyListeners();
+  }
+
+  void clearData() {
+    _data = '';
   }
 }
 
@@ -137,14 +150,16 @@ class _MyHomePageState extends State<MyHomePage> {
     final theme = Theme.of(context);
     final serviceState = context.watch<ServiceState>();
     final audioState = context.watch<AudioRecorder>();
+    final userState = context.watch<UserTranscription>();
 
     print('serviceState.state == ${serviceState.state}');
 
-    if (serviceState.state == ConnectionStatus.connected && audioState.isInit) {
-      audioState.record(); 
+    if (serviceState.state == ConnectionStatus.connected && audioState.isInit && !audioState.isRecording) {
+      audioState.record(userState.updateData); 
     } else if (serviceState.state == ConnectionStatus.connecting && !audioState.isInit) {
+      userState.clearData();
       audioState.init(serviceState.connectionEstablished);
-    } else {
+    } else if (serviceState.state == ConnectionStatus.disconnected){
       audioState.stopRecorder();
     }
 
@@ -239,7 +254,7 @@ class BigCard extends StatelessWidget {
                 child: SizedBox(
                   height: 200,
                   child: Text(
-                    transcriptionState.data,
+                    transcriptionState.data + transcriptionState.nextPhrase,
                     style: theme.textTheme.bodyMedium!
                         .copyWith(color: theme.colorScheme.onPrimaryContainer),
                   ),
