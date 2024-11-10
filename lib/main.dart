@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'audio_recorder.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'constants.dart' as constants;
 
 class TranscriptionState extends ChangeNotifier {
   TranscriptionState(
@@ -26,13 +29,15 @@ class TranscriptionState extends ChangeNotifier {
   String get id => _id;
 
   String get subjectLanguage => _subjectLanguage;
-  set subjectLanguage(String value) {
+
+  void setSubjectLanguage(String value) {
     _subjectLanguage = value;
     notifyListeners();
   }
 
   String get objectLanguage => _objectLanguage;
-  set objectLanguage(String value) {
+
+  void setObjectLanguage(String value) {
     _objectLanguage = value;
     notifyListeners();
   }
@@ -58,8 +63,8 @@ class PartnerTranscription extends TranscriptionState {
       : super(
             data: 'Their words',
             id: 'P',
-            subjectLanguage: 'German',
-            objectLanguage: 'English');
+            subjectLanguage: 'de',
+            objectLanguage: 'en');
 }
 
 class UserTranscription extends TranscriptionState {
@@ -67,8 +72,8 @@ class UserTranscription extends TranscriptionState {
       : super(
             data: 'Your words',
             id: 'U',
-            subjectLanguage: 'English',
-            objectLanguage: 'German');
+            subjectLanguage: 'en',
+            objectLanguage: 'de');
 }
 
 class ServiceState extends ChangeNotifier {
@@ -112,13 +117,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Translation Circuit',
+      title: constants.appName,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.blueGrey, brightness: Brightness.dark),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: '🗣 Translation Circuit'),
+      home: const MyHomePage(title: constants.appBarTitle),
     );
   }
 }
@@ -133,6 +138,32 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  late Future<List<String>> _supportedLanguages;
+
+  @override
+  void initState() {
+    super.initState();
+    _supportedLanguages = fetchSupportedLanguages();
+  }
+
+  //TODO: Fix mistake in implementing REST endpoint on backend.
+  //TODO: It currently doesn't work, so this is hacked to return a hard-coded list.
+  Future<List<String>> fetchSupportedLanguages() async {
+    final response =
+        await http.get(Uri.parse(constants.supportedLanguagesPath));
+
+    if (response.statusCode == 200) {
+      // If the server did return a 200 OK response,
+      // then parse the JSON.
+      return jsonDecode(response.body) as List<String>;
+    } else {
+      // If the server did not return a 200 OK response,
+      // then throw an exception.
+      print('Failed to load album');
+      return ['en', 'de', 'es', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'zh', 'ja'];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     print('-------------------build-------------------');
@@ -144,12 +175,15 @@ class _MyHomePageState extends State<MyHomePage> {
 
     print('serviceState.state == ${serviceState.state}');
 
-    if (serviceState.state == ConnectionStatus.connected && audioState.isInit && !audioState.isRecording) {
-      audioState.record(userState.updateData); 
-    } else if (serviceState.state == ConnectionStatus.connecting && !audioState.isInit) {
+    if (serviceState.state == ConnectionStatus.connected &&
+        audioState.isInit &&
+        !audioState.isRecording) {
+      audioState.record(userState.updateData, userState.objectLanguage);
+    } else if (serviceState.state == ConnectionStatus.connecting &&
+        !audioState.isInit) {
       userState.clearData();
       audioState.init(serviceState.connectionEstablished);
-    } else if (serviceState.state == ConnectionStatus.disconnected){
+    } else if (serviceState.state == ConnectionStatus.disconnected) {
       audioState.stopRecorder();
     }
 
@@ -167,18 +201,32 @@ class _MyHomePageState extends State<MyHomePage> {
             style: theme.textTheme.titleLarge!
                 .copyWith(color: theme.colorScheme.secondary)),
       ),
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
-            Padding(
-              padding: EdgeInsets.all(20.0),
-              child: BigCard(stateId: 'P'),
+            const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: BigCard(stateId: 'U'),
             ),
             Padding(
-              padding: EdgeInsets.all(20.0),
-              child: BigCard(stateId: 'U'),
-            )
+              padding: const EdgeInsets.all(12.0),
+              child: FutureBuilder(
+                  future: _supportedLanguages,
+                  builder: (context, snapshot) => DropdownButton(
+                        items: snapshot.data
+                            ?.map<DropdownMenuItem<String>>(
+                                (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ))
+                            .toList(),
+                        value: userState.objectLanguage,
+                        onChanged: (String? value) {
+                          userState.setObjectLanguage(value!);
+                        },
+                      )),
+            ),
           ],
         ),
       ),
@@ -224,7 +272,7 @@ class BigCard extends StatelessWidget {
         FractionallySizedBox(
           widthFactor: 1,
           child: Text(
-            '${transcriptionState.objectLanguage} ➜ ${transcriptionState.subjectLanguage}',
+            '${transcriptionState.subjectLanguage} ➜ ${transcriptionState.objectLanguage}',
             style: theme.textTheme.titleMedium!
                 .copyWith(color: theme.colorScheme.secondary),
             textAlign: TextAlign.start,
@@ -242,7 +290,7 @@ class BigCard extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: SizedBox(
-                  height: 200,
+                  height: 150,
                   child: Text(
                     transcriptionState.data + transcriptionState.nextPhrase,
                     style: theme.textTheme.bodyMedium!

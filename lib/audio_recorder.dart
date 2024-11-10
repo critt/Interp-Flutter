@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'constants.dart' as constants;
 
 class AudioRecorder extends ChangeNotifier {
   FlutterSoundRecorder? _mRecorder = FlutterSoundRecorder();
@@ -17,7 +18,7 @@ class AudioRecorder extends ChangeNotifier {
   late IO.Socket _socket;
 
   AudioRecorder() {
-    _socket = IO.io('http://192.168.1.251:10000/', <String, dynamic>{
+    _socket = IO.io(constants.servicePath, <String, dynamic>{
       'transports': ['websocket'],
     });
   }
@@ -80,7 +81,7 @@ class AudioRecorder extends ChangeNotifier {
     //sampleRate = await _mRecorder!.getSampleRate();
   }
 
-  Future<void> record(Function(String, bool) f) async {
+  Future<void> record(Function(String, bool) f, String targetLanguage) async {
     print('record');
 
     assert(isInit);
@@ -92,7 +93,7 @@ class AudioRecorder extends ChangeNotifier {
       f(response['data'], response['isFinal']);
     });
 
-    _socket.emit('startGoogleCloudStream', _getTranscriptionConfig());
+    _socket.emit('startGoogleCloudStream', _getTranscriptionConfig(targetLanguage));
 
     var recordingDataController = StreamController<Uint8List>();
     _mRecordingDataSubscription =
@@ -127,14 +128,15 @@ class AudioRecorder extends ChangeNotifier {
     isRecording = false;
   }
 
-  dynamic _getTranscriptionConfig() {
+  dynamic _getTranscriptionConfig(String targetLanguage) {
     return {
       'audio': {
         'encoding': 'LINEAR16',
         'sampleRateHertz': sampleRate,
         'languageCode': 'en-US',
       },
-      'interimResults': true
+      'interimResults': true,
+      'target_language': targetLanguage
     };
   }
 }
