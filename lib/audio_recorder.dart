@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sound/flutter_sound.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
@@ -23,13 +21,20 @@ class AudioRecorder extends ChangeNotifier {
     });
   }
 
-  Future<void> init() async {
+  Future<void> init(Function() f) async {
+    print('AudioRecorder.init()');
     await _openRecorder();
 
-    _socket.onConnect((_) {
-      print("Connection established");
+    if (_socket.connected) {
+      print("AudioRecorder.init() - Already connected");
       isInit = true;
-      notifyListeners();
+      f();
+    }
+
+    _socket.onConnect((_) {
+      print("AudioRecorder.init() - Connection established");
+      isInit = true;
+      f();
     });
 
     _socket.connect();
@@ -105,6 +110,8 @@ class AudioRecorder extends ChangeNotifier {
 
   Future<void> stopRecorder() async {
     print('stopRecorder');
+
+    isInit = false;
 
     _socket.emit('endGoogleCloudStream');
     _socket.off('speechData');

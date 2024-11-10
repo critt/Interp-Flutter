@@ -64,12 +64,14 @@ class ServiceState extends ChangeNotifier {
   ConnectionStatus get state => _state;
 
   void toggleConnection() {
-    _state = _state == ConnectionStatus.connected
-        ? ConnectionStatus.disconnected
-        : _state == ConnectionStatus.disconnected
-            ? ConnectionStatus.connecting
-            : ConnectionStatus.connected;
+    _state = _state == ConnectionStatus.disconnected
+        ? ConnectionStatus.connecting : ConnectionStatus.disconnected;
 
+    notifyListeners();
+  }
+
+  void connectionEstablished() {
+    _state = ConnectionStatus.connected;
     notifyListeners();
   }
 }
@@ -123,22 +125,25 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     // call AudioRecorder.init() after the first frame is rendered
     // why tho?
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AudioRecorder>(context, listen: false).init();
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   Provider.of<AudioRecorder>(context, listen: false).init();
+    // });
   }
 
   @override
   Widget build(BuildContext context) {
     print('-------------------build-------------------');
-    print('serviceState.state == ConnectionStatus.connected');
 
     final theme = Theme.of(context);
     final serviceState = context.watch<ServiceState>();
     final audioState = context.watch<AudioRecorder>();
 
+    print('serviceState.state == ${serviceState.state}');
+
     if (serviceState.state == ConnectionStatus.connected && audioState.isInit) {
       audioState.record(); 
+    } else if (serviceState.state == ConnectionStatus.connecting && !audioState.isInit) {
+      audioState.init(serviceState.connectionEstablished);
     } else {
       audioState.stopRecorder();
     }
