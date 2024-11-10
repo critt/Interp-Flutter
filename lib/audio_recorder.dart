@@ -1,24 +1,44 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sound/flutter_sound.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class AudioRecorder extends ChangeNotifier {
   FlutterSoundRecorder? _mRecorder = FlutterSoundRecorder();
   bool isInit = false;
+  bool isRecording = false;
   String? _mPath;
   StreamSubscription? _mRecordingDataSubscription;
-  int sampleRate = 44100;
+  static const int sampleRate = 16000;
+  static const int bufferSize = 2048;
+  late IO.Socket _socket;
 
-  AudioRecorder();
+  AudioRecorder() {
+    _socket = IO.io('http://192.168.1.251:10000/', <String, dynamic>{
+      'transports': ['websocket'],
+    });
+  }
 
-  Future<void> init() async {
+  Future<void> init(Function() f) async {
+    print('AudioRecorder.init()');
     await _openRecorder();
-    notifyListeners();
+
+    if (_socket.connected) {
+      print("AudioRecorder.init() - Already connected");
+      isInit = true;
+      f();
+    }
+
+    _socket.onConnect((_) {
+      print("AudioRecorder.init() - Connection established");
+      isInit = true;
+      f();
+    });
+
+    _socket.connect();
   }
 
   @override
@@ -26,11 +46,12 @@ class AudioRecorder extends ChangeNotifier {
     stopRecorder();
     _mRecorder!.closeRecorder();
     _mRecorder = null;
+    _socket.dispose();
     super.dispose();
   }
 
   Future<void> _openRecorder() async {
-    print('_openRecorder'); 
+    print('_openRecorder');
 
     var status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) {
@@ -57,34 +78,44 @@ class AudioRecorder extends ChangeNotifier {
       androidWillPauseWhenDucked: true,
     ));
     //sampleRate = await _mRecorder!.getSampleRate();
-
-    isInit = true;
-    notifyListeners();
   }
 
-  Future<void> record() async {
-    print('record'); 
+  Future<void> record(Function(String, bool) f) async {
+    print('record');
 
     assert(isInit);
+    assert(!isRecording);
 
-    var sink = await _createFile();
+    isRecording = true;
+
+    _socket.on('speechData', (response) {
+      f(response['data'], response['isFinal']);
+    });
+
+    _socket.emit('startGoogleCloudStream', _getTranscriptionConfig());
+
     var recordingDataController = StreamController<Uint8List>();
     _mRecordingDataSubscription =
         recordingDataController.stream.listen((buffer) {
-      sink.add(buffer);
+      _socket.emit('binaryAudioData', buffer);
     });
 
     await _mRecorder!.startRecorder(
       toStream: recordingDataController.sink,
       codec: Codec.pcm16,
-      numChannels: 2,
-      sampleRate: 44100,
-      bufferSize: 8192,
+      numChannels: 1,
+      sampleRate: sampleRate,
+      bufferSize: bufferSize,
     );
   }
 
   Future<void> stopRecorder() async {
     print('stopRecorder');
+
+    isInit = false;
+
+    _socket.emit('endGoogleCloudStream');
+    _socket.off('speechData');
 
     await _mRecorder!.stopRecorder();
 
@@ -92,16 +123,18 @@ class AudioRecorder extends ChangeNotifier {
       await _mRecordingDataSubscription!.cancel();
       _mRecordingDataSubscription = null;
     }
+
+    isRecording = false;
   }
 
-  Future<IOSink> _createFile() async {
-    var tempDir = await getTemporaryDirectory();
-    _mPath = '${tempDir.path}/flutter_audio_stream.pcm';
-    var outputFile = File(_mPath!);
-    
-    if (outputFile.existsSync()) {
-      await outputFile.delete();
-    }
-    return outputFile.openWrite();
+  dynamic _getTranscriptionConfig() {
+    return {
+      'audio': {
+        'encoding': 'LINEAR16',
+        'sampleRateHertz': sampleRate,
+        'languageCode': 'en-US',
+      },
+      'interimResults': true
+    };
   }
 }

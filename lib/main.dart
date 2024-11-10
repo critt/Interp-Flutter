@@ -17,8 +17,11 @@ class TranscriptionState extends ChangeNotifier {
   String _subjectLanguage;
   String _objectLanguage;
   String _data;
+  String _nextPhrase = '';
 
   String get data => _data;
+
+  String get nextPhrase => _nextPhrase;
 
   String get id => _id;
 
@@ -34,9 +37,19 @@ class TranscriptionState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateData(String newData) {
-    _data = newData;
+  void updateData(String newData, bool isFinal) {
+    if (isFinal) {
+      _data += newData;
+      _nextPhrase = '';
+    } else {
+      _nextPhrase = newData;
+    }
+
     notifyListeners();
+  }
+
+  void clearData() {
+    _data = '';
   }
 }
 
@@ -64,12 +77,14 @@ class ServiceState extends ChangeNotifier {
   ConnectionStatus get state => _state;
 
   void toggleConnection() {
-    _state = _state == ConnectionStatus.connected
-        ? ConnectionStatus.disconnected
-        : _state == ConnectionStatus.disconnected
-            ? ConnectionStatus.connecting
-            : ConnectionStatus.connected;
+    _state = _state == ConnectionStatus.disconnected
+        ? ConnectionStatus.connecting : ConnectionStatus.disconnected;
 
+    notifyListeners();
+  }
+
+  void connectionEstablished() {
+    _state = ConnectionStatus.connected;
     notifyListeners();
   }
 }
@@ -119,27 +134,22 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   @override
-  void initState() {
-    super.initState();
-    // call AudioRecorder.init() after the first frame is rendered
-    // why tho?
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AudioRecorder>(context, listen: false).init();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     print('-------------------build-------------------');
-    print('serviceState.state == ConnectionStatus.connected');
 
     final theme = Theme.of(context);
     final serviceState = context.watch<ServiceState>();
     final audioState = context.watch<AudioRecorder>();
+    final userState = context.watch<UserTranscription>();
 
-    if (serviceState.state == ConnectionStatus.connected && audioState.isInit) {
-      audioState.record(); 
-    } else {
+    print('serviceState.state == ${serviceState.state}');
+
+    if (serviceState.state == ConnectionStatus.connected && audioState.isInit && !audioState.isRecording) {
+      audioState.record(userState.updateData); 
+    } else if (serviceState.state == ConnectionStatus.connecting && !audioState.isInit) {
+      userState.clearData();
+      audioState.init(serviceState.connectionEstablished);
+    } else if (serviceState.state == ConnectionStatus.disconnected){
       audioState.stopRecorder();
     }
 
@@ -234,7 +244,7 @@ class BigCard extends StatelessWidget {
                 child: SizedBox(
                   height: 200,
                   child: Text(
-                    transcriptionState.data,
+                    transcriptionState.data + transcriptionState.nextPhrase,
                     style: theme.textTheme.bodyMedium!
                         .copyWith(color: theme.colorScheme.onPrimaryContainer),
                   ),
