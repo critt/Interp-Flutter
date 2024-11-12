@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:transcription_client/speaker_switch.dart';
+import 'constants.dart' as constants;
 
 class AudioRecorder extends ChangeNotifier {
   FlutterSoundRecorder? _mRecorder = FlutterSoundRecorder();
@@ -17,7 +19,7 @@ class AudioRecorder extends ChangeNotifier {
   late IO.Socket _socket;
 
   AudioRecorder() {
-    _socket = IO.io('http://192.168.1.251:10000/', <String, dynamic>{
+    _socket = IO.io(constants.servicePath, <String, dynamic>{
       'transports': ['websocket'],
     });
   }
@@ -80,7 +82,8 @@ class AudioRecorder extends ChangeNotifier {
     //sampleRate = await _mRecorder!.getSampleRate();
   }
 
-  Future<void> record(Function(String, bool) f) async {
+  Future<void> record(Function(String, bool) handlerSubject, Function(String, bool) handlerObject, String languageObject,
+      String languageSubject, SpeakerSwitch speakerSwitch) async {
     print('record');
 
     assert(isInit);
@@ -89,15 +92,21 @@ class AudioRecorder extends ChangeNotifier {
     isRecording = true;
 
     _socket.on('speechData', (response) {
-      f(response['data'], response['isFinal']);
+      print('_socketSubject.on speechData');
+      handlerSubject(response['data'], response['isFinal']);
     });
 
-    _socket.emit('startGoogleCloudStream', _getTranscriptionConfig());
+    _socket.emit('startGoogleCloudStream',
+        _getTranscriptionConfig(languageObject, languageSubject));
 
     var recordingDataController = StreamController<Uint8List>();
     _mRecordingDataSubscription =
         recordingDataController.stream.listen((buffer) {
-      _socket.emit('binaryAudioData', buffer);
+          if (speakerSwitch.currentSpeaker == Speaker.subject) {
+            _socket.emit('binaryAudioData', buffer);
+          } else {
+            _socket.emit('binaryAudioData', buffer); // TODO: GET MULTIPLEXING WORKING SO BOTH SPEAKERS ARE SUPPORTED OVER THE SAME SOCKET
+          }
     });
 
     await _mRecorder!.startRecorder(
@@ -127,14 +136,16 @@ class AudioRecorder extends ChangeNotifier {
     isRecording = false;
   }
 
-  dynamic _getTranscriptionConfig() {
+  dynamic _getTranscriptionConfig(
+      String languageObject, String languageSubject) {
     return {
       'audio': {
         'encoding': 'LINEAR16',
         'sampleRateHertz': sampleRate,
-        'languageCode': 'en-US',
+        'languageCode': languageSubject,
       },
-      'interimResults': true
+      'interimResults': true,
+      'targetLanguage': languageObject
     };
   }
 }
