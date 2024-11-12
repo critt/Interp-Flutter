@@ -222,44 +222,48 @@ class _MyHomePageState extends State<MyHomePage> {
                   future: _supportedLanguages,
                   builder: (context, snapshot) => Row(
                         children: [
-                          DropdownButton<Language>(
-                            items: snapshot.data
-                                ?.map<DropdownMenuItem<Language>>(
-                                    (e) => DropdownMenuItem(
-                                          value: e,
-                                          child: Text(e.name),
-                                        ))
-                                .toList(),
-                            value: subjectState.subjectLanguage,
-                            onChanged: (Language? value) {
-                              if (value != null) {
-                                subjectState.setSubjectLanguage(value);
-                                objectState.setObjectLanguage(value);
-                              }
-                            },
-                            iconEnabledColor: theme.colorScheme.primary,
-                            iconDisabledColor: Colors.grey,
-                            isExpanded: false,
+                          Expanded(
+                            child: DropdownButton<Language>(
+                              items: snapshot.data
+                                  ?.map<DropdownMenuItem<Language>>(
+                                      (e) => DropdownMenuItem(
+                                            value: e,
+                                            child: Text(e.name),
+                                          ))
+                                  .toList(),
+                              value: subjectState.subjectLanguage,
+                              onChanged: (Language? value) {
+                                if (value != null) {
+                                  subjectState.setSubjectLanguage(value);
+                                  objectState.setObjectLanguage(value);
+                                }
+                              },
+                              iconEnabledColor: theme.colorScheme.primary,
+                              iconDisabledColor: Colors.grey,
+                              isExpanded: true, // Make the dropdown take up available space
+                            ),
                           ),
                           const Text(' ⇌ '),
-                          DropdownButton<Language>(
-                            items: snapshot.data
-                                ?.map<DropdownMenuItem<Language>>(
-                                    (e) => DropdownMenuItem(
-                                          value: e,
-                                          child: Text(e.name),
-                                        ))
-                                .toList(),
-                            value: subjectState.objectLanguage,
-                            onChanged: (Language? value) {
-                              if (value != null) {
-                                subjectState.setObjectLanguage(value);
-                                objectState.setSubjectLanguage(value);
-                              }
-                            },
-                            iconEnabledColor: theme.colorScheme.primary,
-                            iconDisabledColor: Colors.grey,
-                            isExpanded: false,
+                          Expanded(
+                            child: DropdownButton<Language>(
+                              items: snapshot.data
+                                  ?.map<DropdownMenuItem<Language>>(
+                                      (e) => DropdownMenuItem(
+                                            value: e,
+                                            child: Text(e.name),
+                                          ))
+                                  .toList(),
+                              value: subjectState.objectLanguage,
+                              onChanged: (Language? value) {
+                                if (value != null) {
+                                  subjectState.setObjectLanguage(value);
+                                  objectState.setSubjectLanguage(value);
+                                }
+                              },
+                              iconEnabledColor: theme.colorScheme.primary,
+                              iconDisabledColor: Colors.grey,
+                              isExpanded: true, // Make the dropdown take up available space
+                            ),
                           ),
                         ],
                       )),
@@ -319,11 +323,11 @@ class BigCard extends StatelessWidget {
           widthFactor: 1,
           child: Padding(
             padding: const EdgeInsets.only(top: 14.0, bottom: 14.0),
-            child: Container(
-              decoration: BoxDecoration(
+            child: Card( //TODO make scrollable, or otherwise handle content overflow behavior
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
-                color: theme.colorScheme.primaryContainer,
               ),
+              color: theme.colorScheme.primaryContainer,
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: SizedBox(
