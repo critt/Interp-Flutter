@@ -16,10 +16,15 @@ class AudioRecorder extends ChangeNotifier {
   StreamSubscription? _mRecordingDataSubscription;
   static const int sampleRate = 16000;
   static const int bufferSize = 2048;
-  late IO.Socket _socket;
+  late IO.Socket _socketSubject;
+  late IO.Socket _socketObject;
 
   AudioRecorder() {
-    _socket = IO.io(constants.servicePath, <String, dynamic>{
+    _socketSubject = IO.io('${constants.servicePath}subject', <String, dynamic>{
+      'transports': ['websocket'],
+    });
+
+     _socketObject = IO.io('${constants.servicePath}object', <String, dynamic>{
       'transports': ['websocket'],
     });
   }
@@ -28,19 +33,24 @@ class AudioRecorder extends ChangeNotifier {
     print('AudioRecorder.init()');
     await _openRecorder();
 
-    if (_socket.connected) {
+    if (_socketSubject.connected && _socketObject.connected) {
       print("AudioRecorder.init() - Already connected");
       isInit = true;
       f();
+      return;
     }
 
-    _socket.onConnect((_) {
+    _socketSubject.onConnect((_) {
+        _socketObject.connect();
+    });
+
+    _socketObject.onConnect((_) {
       print("AudioRecorder.init() - Connection established");
       isInit = true;
       f();
     });
 
-    _socket.connect();
+    _socketSubject.connect();
   }
 
   @override
@@ -48,7 +58,8 @@ class AudioRecorder extends ChangeNotifier {
     stopRecorder();
     _mRecorder!.closeRecorder();
     _mRecorder = null;
-    _socket.dispose();
+    _socketSubject.dispose();
+    _socketObject.dispose();
     super.dispose();
   }
 
@@ -91,21 +102,29 @@ class AudioRecorder extends ChangeNotifier {
 
     isRecording = true;
 
-    _socket.on('speechData', (response) {
+    _socketSubject.on('speechData', (response) {
       print('_socketSubject.on speechData');
       handlerSubject(response['data'], response['isFinal']);
     });
 
-    _socket.emit('startGoogleCloudStream',
+    _socketObject.on('speechData', (response) {
+      print('_socketObject.on speechData');
+      handlerObject(response['data'], response['isFinal']);
+    });
+
+    _socketSubject.emit('startGoogleCloudStream',
         _getTranscriptionConfig(languageObject, languageSubject));
+    
+    _socketObject.emit('startGoogleCloudStream',
+        _getTranscriptionConfig(languageSubject, languageObject));
 
     var recordingDataController = StreamController<Uint8List>();
     _mRecordingDataSubscription =
         recordingDataController.stream.listen((buffer) {
           if (speakerSwitch.currentSpeaker == Speaker.subject) {
-            _socket.emit('binaryAudioData', buffer);
+            _socketSubject.emit('binaryAudioData', buffer);
           } else {
-            _socket.emit('binaryAudioData', buffer); // TODO: GET MULTIPLEXING WORKING SO BOTH SPEAKERS ARE SUPPORTED OVER THE SAME SOCKET
+            _socketObject.emit('binaryAudioData', buffer);
           }
     });
 
@@ -123,8 +142,10 @@ class AudioRecorder extends ChangeNotifier {
 
     isInit = false;
 
-    _socket.emit('endGoogleCloudStream');
-    _socket.off('speechData');
+    _socketSubject.emit('endGoogleCloudStream');
+    _socketSubject.off('speechData');
+    _socketObject.emit('endGoogleCloudStream');
+    _socketObject.off('speechData');
 
     await _mRecorder!.stopRecorder();
 
