@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:transcription_client/speaker_switch.dart';
 import 'audio_recorder.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'constants.dart' as constants;
+import 'language.dart';
 
 class TranscriptionState extends ChangeNotifier {
   TranscriptionState(
       {required String id,
-      required String subjectLanguage,
-      required String objectLanguage,
+      required Language subjectLanguage,
+      required Language objectLanguage,
       required String data})
       : _id = id,
         _subjectLanguage = subjectLanguage,
@@ -17,8 +19,8 @@ class TranscriptionState extends ChangeNotifier {
         _data = data;
 
   final String _id;
-  String _subjectLanguage;
-  String _objectLanguage;
+  Language _subjectLanguage;
+  Language _objectLanguage;
   String _data;
   String _nextPhrase = '';
 
@@ -28,17 +30,17 @@ class TranscriptionState extends ChangeNotifier {
 
   String get id => _id;
 
-  String get subjectLanguage => _subjectLanguage;
+  Language get subjectLanguage => _subjectLanguage;
 
-  void setSubjectLanguage(String value) {
-    _subjectLanguage = value;
+  void setSubjectLanguage(Language language) {
+    _subjectLanguage = language;
     notifyListeners();
   }
 
-  String get objectLanguage => _objectLanguage;
+  Language get objectLanguage => _objectLanguage;
 
-  void setObjectLanguage(String value) {
-    _objectLanguage = value;
+  void setObjectLanguage(Language language) {
+    _objectLanguage = language;
     notifyListeners();
   }
 
@@ -58,22 +60,24 @@ class TranscriptionState extends ChangeNotifier {
   }
 }
 
-class PartnerTranscription extends TranscriptionState {
-  PartnerTranscription()
+class ObjectTranscription extends TranscriptionState {
+  ObjectTranscription()
       : super(
-            data: 'Their words',
-            id: 'P',
-            subjectLanguage: 'de',
-            objectLanguage: 'en');
+          data: 'Their words',
+          id: 'O',
+          subjectLanguage: const Language(code: 'de', name: 'German'),
+          objectLanguage: const Language(code: 'en', name: 'English'),
+        );
 }
 
-class UserTranscription extends TranscriptionState {
-  UserTranscription()
+class SubjectTranscription extends TranscriptionState {
+  SubjectTranscription()
       : super(
-            data: 'Your words',
-            id: 'U',
-            subjectLanguage: 'en',
-            objectLanguage: 'de');
+          data: 'Their words',
+          id: 'S',
+          subjectLanguage: const Language(code: 'en', name: 'English'),
+          objectLanguage: const Language(code: 'de', name: 'German'),
+        );
 }
 
 class ServiceState extends ChangeNotifier {
@@ -83,7 +87,8 @@ class ServiceState extends ChangeNotifier {
 
   void toggleConnection() {
     _state = _state == ConnectionStatus.disconnected
-        ? ConnectionStatus.connecting : ConnectionStatus.disconnected;
+        ? ConnectionStatus.connecting
+        : ConnectionStatus.disconnected;
 
     notifyListeners();
   }
@@ -102,8 +107,8 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => ServiceState()),
         ChangeNotifierProvider(create: (_) => AudioRecorder()),
-        ChangeNotifierProvider(create: (_) => UserTranscription()),
-        ChangeNotifierProvider(create: (_) => PartnerTranscription()),
+        ChangeNotifierProvider(create: (_) => SubjectTranscription()),
+        ChangeNotifierProvider(create: (_) => ObjectTranscription()),
       ],
       child: const MyApp(),
     ),
@@ -138,7 +143,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late Future<List<String>> _supportedLanguages;
+  late Future<List<Language>?> _supportedLanguages;
+  final SpeakerSwitch _speakerSwitch = SpeakerSwitch();
 
   @override
   void initState() {
@@ -146,42 +152,38 @@ class _MyHomePageState extends State<MyHomePage> {
     _supportedLanguages = fetchSupportedLanguages();
   }
 
-  //TODO: Fix mistake in implementing REST endpoint on backend.
-  //TODO: It currently doesn't work, so this is hacked to return a hard-coded list.
-  Future<List<String>> fetchSupportedLanguages() async {
+  Future<List<Language>?> fetchSupportedLanguages() async {
     final response =
         await http.get(Uri.parse(constants.supportedLanguagesPath));
 
     if (response.statusCode == 200) {
-      // If the server did return a 200 OK response,
-      // then parse the JSON.
-      return jsonDecode(response.body) as List<String>;
+      List<dynamic> jsonList = jsonDecode(response.body);
+      List<Language> result =
+          jsonList.map((item) => Language.fromJson(item)).toList();
+      return result;
     } else {
-      // If the server did not return a 200 OK response,
-      // then throw an exception.
-      print('Failed to load album');
-      return ['en', 'de', 'es', 'fr', 'it', 'nl', 'pl', 'pt', 'ru', 'zh', 'ja'];
+      print('Failed to load supported languages');
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    print('-------------------build-------------------');
-
     final theme = Theme.of(context);
     final serviceState = context.watch<ServiceState>();
     final audioState = context.watch<AudioRecorder>();
-    final userState = context.watch<UserTranscription>();
-
-    print('serviceState.state == ${serviceState.state}');
+    final subjectState = context.watch<SubjectTranscription>();
+    final objectState = context.watch<ObjectTranscription>();
 
     if (serviceState.state == ConnectionStatus.connected &&
         audioState.isInit &&
         !audioState.isRecording) {
-      audioState.record(userState.updateData, userState.objectLanguage);
+      audioState.record(subjectState.updateData, objectState.updateData,
+          subjectState.objectLanguage.code, objectState.objectLanguage.code, _speakerSwitch);
     } else if (serviceState.state == ConnectionStatus.connecting &&
         !audioState.isInit) {
-      userState.clearData();
+      subjectState.clearData();
+      objectState.clearData();
       audioState.init(serviceState.connectionEstablished);
     } else if (serviceState.state == ConnectionStatus.disconnected) {
       audioState.stopRecorder();
@@ -197,34 +199,69 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme.colorScheme.surface,
-        title: Text(widget.title,
-            style: theme.textTheme.titleLarge!
-                .copyWith(color: theme.colorScheme.secondary)),
+        
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
+            const RotatedBox (
+              quarterTurns: 2,
+              child: const Padding(
+                padding: EdgeInsets.all(12.0),
+                child: BigCard(stateId: 'S'),
+              ),
+            ),
             const Padding(
               padding: EdgeInsets.all(12.0),
-              child: BigCard(stateId: 'U'),
+              child: BigCard(stateId: 'O'),
             ),
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: FutureBuilder(
                   future: _supportedLanguages,
-                  builder: (context, snapshot) => DropdownButton(
-                        items: snapshot.data
-                            ?.map<DropdownMenuItem<String>>(
-                                (e) => DropdownMenuItem(
-                                      value: e,
-                                      child: Text(e),
-                                    ))
-                            .toList(),
-                        value: userState.objectLanguage,
-                        onChanged: (String? value) {
-                          userState.setObjectLanguage(value!);
-                        },
+                  builder: (context, snapshot) => Row(
+                        children: [
+                          DropdownButton<Language>(
+                            items: snapshot.data
+                                ?.map<DropdownMenuItem<Language>>(
+                                    (e) => DropdownMenuItem(
+                                          value: e,
+                                          child: Text(e.name),
+                                        ))
+                                .toList(),
+                            value: subjectState.subjectLanguage,
+                            onChanged: (Language? value) {
+                              if (value != null) {
+                                subjectState.setSubjectLanguage(value);
+                                objectState.setObjectLanguage(value);
+                              }
+                            },
+                            iconEnabledColor: theme.colorScheme.primary,
+                            iconDisabledColor: Colors.grey,
+                            isExpanded: false,
+                          ),
+                          const Text(' ⇌ '),
+                          DropdownButton<Language>(
+                            items: snapshot.data
+                                ?.map<DropdownMenuItem<Language>>(
+                                    (e) => DropdownMenuItem(
+                                          value: e,
+                                          child: Text(e.name),
+                                        ))
+                                .toList(),
+                            value: subjectState.objectLanguage,
+                            onChanged: (Language? value) {
+                              if (value != null) {
+                                subjectState.setObjectLanguage(value);
+                                objectState.setSubjectLanguage(value);
+                              }
+                            },
+                            iconEnabledColor: theme.colorScheme.primary,
+                            iconDisabledColor: Colors.grey,
+                            isExpanded: false,
+                          ),
+                        ],
                       )),
             ),
           ],
@@ -261,9 +298,9 @@ class BigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var transcriptionState = stateId == 'U'
-        ? context.watch<UserTranscription>()
-        : context.watch<PartnerTranscription>();
+    var transcriptionState = stateId == 'S'
+        ? context.watch<SubjectTranscription>()
+        : context.watch<ObjectTranscription>();
 
     final theme = Theme.of(context);
 
@@ -272,7 +309,7 @@ class BigCard extends StatelessWidget {
         FractionallySizedBox(
           widthFactor: 1,
           child: Text(
-            '${transcriptionState.subjectLanguage} ➜ ${transcriptionState.objectLanguage}',
+            '${transcriptionState.subjectLanguage.name} ➜ ${transcriptionState.objectLanguage.name}',
             style: theme.textTheme.titleMedium!
                 .copyWith(color: theme.colorScheme.secondary),
             textAlign: TextAlign.start,
