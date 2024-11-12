@@ -20,11 +20,13 @@ class AudioRecorder extends ChangeNotifier {
   late IO.Socket _socketObject;
 
   AudioRecorder() {
+    //This looks like we are opening two sockets, but its actually just a magic multiplexing feature in socket_io_client
+    //It allows us to multiplex multiple bidirectional streams over a single socket, identified by namespaces ('/subject' and '/object' in this case)
     _socketSubject = IO.io('${constants.servicePath}subject', <String, dynamic>{
       'transports': ['websocket'],
     });
 
-     _socketObject = IO.io('${constants.servicePath}object', <String, dynamic>{
+    _socketObject = IO.io('${constants.servicePath}object', <String, dynamic>{
       'transports': ['websocket'],
     });
   }
@@ -41,7 +43,7 @@ class AudioRecorder extends ChangeNotifier {
     }
 
     _socketSubject.onConnect((_) {
-        _socketObject.connect();
+      _socketObject.connect();
     });
 
     _socketObject.onConnect((_) {
@@ -58,8 +60,10 @@ class AudioRecorder extends ChangeNotifier {
     stopRecorder();
     _mRecorder!.closeRecorder();
     _mRecorder = null;
+
     _socketSubject.dispose();
     _socketObject.dispose();
+
     super.dispose();
   }
 
@@ -93,8 +97,12 @@ class AudioRecorder extends ChangeNotifier {
     //sampleRate = await _mRecorder!.getSampleRate();
   }
 
-  Future<void> record(Function(String, bool) handlerSubject, Function(String, bool) handlerObject, String languageObject,
-      String languageSubject, SpeakerSwitch speakerSwitch) async {
+  Future<void> record(
+      Function(String, bool) handlerSubject,
+      Function(String, bool) handlerObject,
+      String languageObject,
+      String languageSubject,
+      SpeakerSwitch speakerSwitch) async {
     print('record');
 
     assert(isInit);
@@ -106,26 +114,24 @@ class AudioRecorder extends ChangeNotifier {
       print('_socketSubject.on speechData');
       handlerSubject(response['data'], response['isFinal']);
     });
+    _socketSubject.emit('startGoogleCloudStream',
+        _getTranscriptionConfig(languageObject, languageSubject));
 
     _socketObject.on('speechData', (response) {
       print('_socketObject.on speechData');
       handlerObject(response['data'], response['isFinal']);
     });
-
-    _socketSubject.emit('startGoogleCloudStream',
-        _getTranscriptionConfig(languageObject, languageSubject));
-    
     _socketObject.emit('startGoogleCloudStream',
         _getTranscriptionConfig(languageSubject, languageObject));
 
     var recordingDataController = StreamController<Uint8List>();
     _mRecordingDataSubscription =
         recordingDataController.stream.listen((buffer) {
-          if (speakerSwitch.currentSpeaker == Speaker.subject) {
-            _socketSubject.emit('binaryAudioData', buffer);
-          } else {
-            _socketObject.emit('binaryAudioData', buffer);
-          }
+      if (speakerSwitch.currentSpeaker == Speaker.subject) {
+        _socketSubject.emit('binaryAudioData', buffer);
+      } else {
+        _socketObject.emit('binaryAudioData', buffer);
+      }
     });
 
     await _mRecorder!.startRecorder(
