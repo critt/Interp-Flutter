@@ -2,24 +2,13 @@
 
 A Flutter client for a two-party verbal interpretation system using Google Cloud Platform (GCP).
 
+<img src="screenshots/android.png" alt="Android Screenshot" width="300"/>
+
 ## Features
 
 - Real-time bidirectional speech translation to facilitate a conversation between two people that don't speak the same language
 - Supports 100+ languages
 - Cross-platform: Android, iOS, and macOS
-
-## Screenshots
-
-### Android
-<img src="screenshots/android.png" alt="Android Screenshot" width="350"/>
-
-### iOS
-<img src="screenshots/iOS.png" alt="iOS Screenshot" width="350"/>
-
-### macOS
-<img src="screenshots/macOS.png" alt="macOS Screenshot" width="400"/>
-
-## Installation
 
 ### Prerequisites
 

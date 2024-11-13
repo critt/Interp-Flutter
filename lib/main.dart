@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:transcription_client/speaker_switch.dart';
@@ -57,13 +59,14 @@ class TranscriptionState extends ChangeNotifier {
 
   void clearData() {
     _data = '';
+    notifyListeners();
   }
 }
 
 class ObjectTranscription extends TranscriptionState {
   ObjectTranscription()
       : super(
-          data: 'Their words',
+          data: '',
           id: 'O',
           subjectLanguage: const Language(code: 'de', name: 'German'),
           objectLanguage: const Language(code: 'en', name: 'English'),
@@ -73,7 +76,7 @@ class ObjectTranscription extends TranscriptionState {
 class SubjectTranscription extends TranscriptionState {
   SubjectTranscription()
       : super(
-          data: 'Their words',
+          data: '',
           id: 'S',
           subjectLanguage: const Language(code: 'en', name: 'English'),
           objectLanguage: const Language(code: 'de', name: 'German'),
@@ -124,10 +127,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: constants.appName,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blueGrey, brightness: Brightness.dark),
-        useMaterial3: true,
-      ),
+          colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blueGrey, brightness: Brightness.dark),
+          useMaterial3: true,
+          dividerTheme: const DividerThemeData(color: Colors.transparent)),
       home: const MyHomePage(title: constants.appBarTitle),
     );
   }
@@ -169,7 +172,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = Theme.of(context).copyWith(dividerColor: Colors.transparent);
     final serviceState = context.watch<ServiceState>();
     final audioState = context.watch<AudioRecorder>();
     final subjectState = context.watch<SubjectTranscription>();
@@ -178,8 +181,12 @@ class _MyHomePageState extends State<MyHomePage> {
     if (serviceState.state == ConnectionStatus.connected &&
         audioState.isInit &&
         !audioState.isRecording) {
-      audioState.record(subjectState.updateData, objectState.updateData,
-          subjectState.objectLanguage.code, objectState.objectLanguage.code, _speakerSwitch);
+      audioState.record(
+          subjectState.updateData,
+          objectState.updateData,
+          subjectState.objectLanguage.code,
+          objectState.objectLanguage.code,
+          _speakerSwitch);
     } else if (serviceState.state == ConnectionStatus.connecting &&
         !audioState.isInit) {
       subjectState.clearData();
@@ -199,13 +206,13 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: theme.colorScheme.surface,
-        
+        toolbarHeight: 10,
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
-            const RotatedBox (
+            const RotatedBox(
               quarterTurns: 2,
               child: const Padding(
                 padding: EdgeInsets.all(12.0),
@@ -240,7 +247,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               },
                               iconEnabledColor: theme.colorScheme.primary,
                               iconDisabledColor: Colors.grey,
-                              isExpanded: true, // Make the dropdown take up available space
+                              isExpanded:
+                                  true, // Make the dropdown take up available space
                             ),
                           ),
                           const Text(' ⇌ '),
@@ -262,7 +270,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               },
                               iconEnabledColor: theme.colorScheme.primary,
                               iconDisabledColor: Colors.grey,
-                              isExpanded: true, // Make the dropdown take up available space
+                              isExpanded:
+                                  true, // Make the dropdown take up available space
                             ),
                           ),
                         ],
@@ -271,14 +280,56 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      extendBody: true,
+      persistentFooterAlignment: AlignmentDirectional.centerStart,
+      persistentFooterButtons: [
+        MaterialButton(
+          height: 100,
+          minWidth: 200,
+          onPressed: () => (),
+          child: GestureDetector(
+            //TODO: This is buggy AF. If you slide your finger at all it triggers callbacks and everything is undone.
+            //TODO: Maybe RawGestureDetector would work, idk
+              onTapDown: (details) {
+                subjectState.clearData();
+                setState(() {
+                  _speakerSwitch.setSpeaker(Speaker.subject);
+                });
+              },
+              onTapUp: (details) {
+                objectState.clearData();
+                setState(() {
+                  _speakerSwitch.setSpeaker(Speaker.object);
+                });
+              },
+              onTapCancel: () {
+                objectState.clearData();
+                setState(() {
+                  _speakerSwitch.setSpeaker(Speaker.object);
+                });
+              },
+              child: Container(
+                height: 100,
+                width: 200,
+                color: Colors.transparent,
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Text(_speakerSwitch.currentSpeaker == Speaker.subject
+                      ? 'Speaking'
+                      : 'Listening'),
+                ),
+              )),
+        ),
+        FloatingActionButton(
         backgroundColor: Theme.of(context).colorScheme.secondary,
         onPressed: () {
           serviceState.toggleConnection();
         },
-        tooltip: 'Increment',
+        tooltip: 'Connect',
         child: Icon(Icons.connect_without_contact, color: connectionColor),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      ), 
+      ],
+      
     );
   }
 
@@ -323,7 +374,8 @@ class BigCard extends StatelessWidget {
           widthFactor: 1,
           child: Padding(
             padding: const EdgeInsets.only(top: 14.0, bottom: 14.0),
-            child: Card( //TODO make scrollable, or otherwise handle content overflow behavior
+            child: Card(
+              //TODO make scrollable, or otherwise handle content overflow behavior
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
