@@ -129,8 +129,10 @@ class AudioRecorder extends ChangeNotifier {
         recordingDataController.stream.listen((buffer) {
       if (speakerSwitch.currentSpeaker == Speaker.subject) {
         _socketSubject.emit('binaryAudioData', buffer);
+        _socketObject.emit('binaryAudioData', Uint8List(0));
       } else {
         _socketObject.emit('binaryAudioData', buffer);
+        _socketSubject.emit('binaryAudioData', Uint8List(0));
       }
     });
 
