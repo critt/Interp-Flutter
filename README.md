@@ -1,12 +1,12 @@
 # Translation Circuit
 
-A Flutter client for a two-party verbal interpretation system using Google Cloud Platform.
+A Flutter client for a bidirectional speech interpretation system using Google Cloud Platform.
 
 <img src="screenshots/android3.png" alt="Android Screenshot" width="300"/>
 
 ## Features
 
-- Real-time bidirectional speech translation to facilitate a conversation between two people that don't speak the same language
+- Real-time bidirectional speech translation and interpretation to facilitate a conversation between two people that don't speak the same language
 - Supports 100+ languages
 - Cross-platform: Android and iOS
 
