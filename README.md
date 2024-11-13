@@ -8,7 +8,7 @@ A Flutter client for a two-party verbal interpretation system using Google Cloud
 
 - Real-time bidirectional speech translation to facilitate a conversation between two people that don't speak the same language
 - Supports 100+ languages
-- Cross-platform: Android, iOS, and macOS
+- Cross-platform: Android and iOS
 
 ### Prerequisites
 
