@@ -1,8 +1,8 @@
 # Translation Circuit
 
-A Flutter client for a two-party verbal interpretation system using Google Cloud Platform (GCP).
+A Flutter client for a two-party verbal interpretation system using Google Cloud Platform.
 
-<img src="screenshots/android.png" alt="Android Screenshot" width="300"/>
+<img src="screenshots/android3.png" alt="Android Screenshot" width="300"/>
 
 ## Features
 
