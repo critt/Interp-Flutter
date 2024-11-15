@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:convert';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:transcription_client/speaker_switch.dart';
 import 'constants.dart' as constants;
@@ -165,9 +166,8 @@ class AudioRecorder extends ChangeNotifier {
     isRecording = false;
   }
 
-  dynamic _getTranscriptionConfig(
-      String languageObject, String languageSubject) {
-    return {
+  String _getTranscriptionConfig(String languageObject, String languageSubject) {
+    var config = {
       'audio': {
         'encoding': 'LINEAR16',
         'sampleRateHertz': sampleRate,
@@ -176,5 +176,6 @@ class AudioRecorder extends ChangeNotifier {
       'interimResults': true,
       'targetLanguage': languageObject
     };
+    return jsonEncode(config);
   }
 }
