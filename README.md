@@ -1,4 +1,4 @@
-# Translation Circuit
+# Interp
 
 A Flutter client for a bidirectional speech interpretation system using Google Cloud Platform.
 
