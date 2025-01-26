@@ -1,6 +1,6 @@
 // lib/constants.dart
 
-const String servicePath = 'http://192.168.1.251:10000/';
+const String servicePath = 'http://192.168.0.32:10000/';
 const String supportedLanguagesPath = '${servicePath}getSupportedLanguages';
 
 const String appName = 'Translation Circuit';
